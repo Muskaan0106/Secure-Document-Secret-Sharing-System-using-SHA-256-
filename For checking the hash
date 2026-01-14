@@ -1,0 +1,76 @@
+import os
+import hashlib
+
+def calculate_hash(data):
+    """Generate a SHA-256 hash for given data."""
+    return hashlib.sha256(data).hexdigest()
+
+def load_shares_from_txt(file_path):
+    """Loads shares from a text file and returns them as a list of (x, y) pairs."""
+    shares = []
+    original_hash = None
+
+    if not os.path.exists(file_path):
+        print("Error: Shares file not found.")
+        return None, None
+
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if line.startswith("File Hash:"):
+                original_hash = line.split(":")[1].strip()
+            elif "Share" in line:
+                try:
+                    parts = line.split(":")
+                    x = int(parts[0].split(" ")[-1])
+                    y = parts[-1].strip()
+                    shares.append((x, y))
+                except ValueError:
+                    pass
+
+    return original_hash, shares
+
+def verify_shares_integrity(original_shares, extracted_shares, similarity_threshold=0.9):
+    """
+    Verifies the integrity of extracted shares by comparing their received hashes with the expected hashes.
+    
+    :param original_shares: List of original shares [(x, y), ...]
+    :param extracted_shares: List of extracted shares [(x, y), ...]
+    :param similarity_threshold: Minimum fraction of matching shares required (default: 90%)
+    :return: True if shares are valid, False if tampering is detected.
+    """
+    if not original_shares or not extracted_shares:
+        print("Error: No shares provided for verification.")
+        return False
+
+    # Convert shares to a dictionary for easy lookup
+    original_dict = {x: y for x, y in original_shares}
+    extracted_dict = {x: y for x, y in extracted_shares}
+
+    matched = 0
+    total = len(original_dict)
+
+    for x, original_y in original_dict.items():
+        extracted_y = extracted_dict.get(x)
+        if extracted_y and original_y == extracted_y:
+            matched += 1
+
+    similarity_ratio = matched / total if total > 0 else 0
+    print(f"Share Integrity Check: {matched}/{total} shares matched ({similarity_ratio * 100:.2f}%)")
+
+    return similarity_ratio >= similarity_threshold
+
+if __name__ == "__main__":
+    # Paths to original and extracted shares
+    original_shares_path = "C:/Users/Admin/Tech Project/shares/SecureShares.txt"
+    extracted_shares_path = "C:/Users/Admin/Tech Project/extracted/Extracted_Shares.txt"
+
+    # Load original and extracted shares
+    original_hash, original_shares = load_shares_from_txt(original_shares_path)
+    _, extracted_shares = load_shares_from_txt(extracted_shares_path)
+
+    # Verify share integrity
+    if verify_shares_integrity(original_shares, extracted_shares):
+        print("✅ Shares are authentic. No tampering detected.")
+    else:
+        print("⚠️ Warning: Possible tampering detected!")
